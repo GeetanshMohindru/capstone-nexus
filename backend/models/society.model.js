@@ -15,7 +15,21 @@ const eventSchema = new mongoose.Schema({
 
 const societySchema = new mongoose.Schema({
   name: { type: String, required: true }, // e.g. "Creative Computing Society (CCS)"
-  type: { type: String, enum: ["Technical", "Cultural", "Social", "Sports"], required: true },
+  categories: [
+  {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "SocietyCategory",
+    required: true,
+  },
+],
+categoryNames: [
+  {
+    type: String,
+    index: true,
+    required: true,
+  },
+],
+  logo: { type: String, required: true },
 
   about: { type: String, required: true },
 
@@ -45,6 +59,15 @@ const societySchema = new mongoose.Schema({
   },
 
   lastUpdated: { type: Date, default: Date.now },
-});
+},
+{
+    indexes:[
+      {
+        name:"idx_type",
+        fields:["type"]
+      }
+    ]
+}
+);
 
 export default mongoose.model("Society", societySchema);

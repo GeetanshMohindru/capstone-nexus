@@ -1,13 +1,12 @@
 /**
- * 📝 LOGGER SETUP (Updated)
+ * 📝 LOGGER SETUP (Daily rotation, structured folders, clean formatting)
  *
- * 1. `getLogFileName()` returns a daily log file based on IST date (e.g. 2025-11-01.log).
- * 2. `createTransports()` sets up separate files for info and error logs, plus colored console output.
- * 3. `scheduleLogSwitch()` rotates logs every day at 12 AM IST automatically.
- * 4. The format includes IST timestamps and uniform API-style log entries.
- * 5. Directories used:
- *      /logs/info-logs
- *      /logs/error-logs
+ * 1. Creates one log file per day: YYYY-MM-DD.log
+ * 2. Auto-rotates at 12 AM IST.
+ * 3. Writes:
+ *    - All info-level and above logs → /logs/info-logs
+ *    - Only errors → /logs/error-logs
+ * 4. Console output stays colorized.
  */
 
 import { createLogger, format, transports } from "winston";
@@ -17,64 +16,61 @@ import moment from "moment-timezone";
 
 const { combine, printf, colorize } = format;
 
-// Generate IST timestamp
+// Create timestamp in IST
 const timestampIST = format((info) => {
   info.timestamp = moment().tz("Asia/Kolkata").format("YYYY-MM-DD HH:mm:ss");
   return info;
 });
 
-// Define daily filename (e.g., 2025-11-01.log)
+// Generate daily log filename (e.g. 2025-11-01.log)
 function getLogFileName() {
-  const todayIST = moment().tz("Asia/Kolkata").format("YYYY-MM-DD");
-  return `${todayIST}.log`;
+  return `${moment().tz("Asia/Kolkata").format("YYYY-MM-DD")}.log`;
 }
 
-// Create folders if not exist
-const logDir = path.join(process.cwd(), "logs");
-const infoDir = path.join(logDir, "info-logs");
-const errorDir = path.join(logDir, "error-logs");
-
-[logDir, infoDir, errorDir].forEach((dir) => {
+// Ensure required directories exist
+const baseDir = path.join(process.cwd(), "logs");
+const infoDir = path.join(baseDir, "info-logs");
+const errorDir = path.join(baseDir, "error-logs");
+[baseDir, infoDir, errorDir].forEach((dir) => {
   if (!fs.existsSync(dir)) fs.mkdirSync(dir);
 });
 
-// Define custom format
+// Log format
 const logFormat = printf(({ level, message, timestamp }) => {
   return `[IST ${timestamp}] [${level.toUpperCase()}]: ${message}`;
 });
 
-// Create transports
+// Create transport instances
 function createTransports() {
-  const filename = getLogFileName();
-
+  const fileName = getLogFileName();
   return [
     new transports.Console({
       format: combine(colorize(), logFormat),
       level: "info",
     }),
     new transports.File({
-      filename: path.join(infoDir, filename),
+      filename: path.join(infoDir, fileName),
       level: "info",
       format: combine(logFormat),
     }),
     new transports.File({
-      filename: path.join(errorDir, filename),
+      filename: path.join(errorDir, fileName),
       level: "error",
       format: combine(logFormat),
     }),
   ];
 }
 
-// Schedule daily rotation at midnight IST
-function scheduleLogSwitch(logger) {
-  const nowIST = moment().tz("Asia/Kolkata");
-  const nextMidnight = nowIST.clone().add(1, "day").startOf("day");
-  const msUntilMidnight = nextMidnight.diff(nowIST);
+// Rotate logs at 12AM IST daily
+function scheduleDailyRotation(logger) {
+  const now = moment().tz("Asia/Kolkata");
+  const nextMidnight = now.clone().add(1, "day").startOf("day");
+  const msUntilMidnight = nextMidnight.diff(now);
 
   setTimeout(() => {
     logger.clear();
     createTransports().forEach((t) => logger.add(t));
-    scheduleLogSwitch(logger);
+    scheduleDailyRotation(logger);
   }, msUntilMidnight);
 }
 
@@ -85,6 +81,6 @@ const logger = createLogger({
   transports: createTransports(),
 });
 
-scheduleLogSwitch(logger);
+scheduleDailyRotation(logger);
 
 export default logger;
